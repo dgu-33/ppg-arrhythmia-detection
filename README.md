@@ -47,12 +47,14 @@ The ResNet1D encoder is pre-trained with contrastive learning (CLIP-style) to al
 
 ```
 ppg_arrhythmia_detection/
-├── model_architecture.py   # Model classes, HRV extraction, preprocessing (shared)
-├── train.py                # Training pipeline with argparse CLI
-├── app.py                  # Streamlit web application
-├── llm_utils.py            # Gemini LLM setup, RAG encoders, medical guidelines
+├── model_architecture.py      # Model classes, HRV extraction, preprocessing (shared)
+├── contrastive_learning.py    # CLIP pre-training pipeline with argparse CLI
+├── train.py                   # Training pipeline with argparse CLI
+├── app.py                     # Streamlit web application
+├── llm_utils.py               # Gemini LLM setup, RAG encoders, medical guidelines
 ├── requirements.txt
-└── .gitignore
+├── .gitignore
+└── LICENSE
 ```
 
 ### File Responsibilities
@@ -60,6 +62,7 @@ ppg_arrhythmia_detection/
 | File | Role |
 |------|------|
 | `model_architecture.py` | Defines `UNet1D_ResNet_Combined`, `ResNet1D_Backbone`, HRV feature extraction, inference preprocessing. Shared by both training and inference. |
+| `contrastive_learning.py` | CLIP-style contrastive pre-training: aligns ResNet1D wave embeddings with BioBERT text embeddings via masked InfoNCE loss. Builds the RAG knowledge base. |
 | `train.py` | Full training loop: data loading, CLIP weight injection, focal + dice loss, cosine LR warmup, early stopping, evaluation metrics. |
 | `app.py` | Streamlit UI: patient login/register (SQLite), PPG file upload, model inference, LLM report generation. |
 | `llm_utils.py` | CLIP-compatible clinical encoders for RAG retrieval, Gemini model setup, ESC/ACC/AHA guideline text. |
@@ -126,7 +129,10 @@ Training expects a merged CSV (`*_combined.csv`) containing clinical features pe
 streamlit run app.py
 ```
 
-1. Enter your Gemini API key in `app.py` (`MY_API_KEY = ""`).
+1. Create a `.env` file in the project root with your Gemini API key:
+   ```
+   GEMINI_API_KEY=your_key_here
+   ```
 2. Register or log in with patient clinical data.
 3. Upload a `.npy` or `.npz` PPG file.
 4. The app scans the signal in sliding windows, classifies each segment, and generates an LLM clinical report.
