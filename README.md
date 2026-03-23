@@ -1,4 +1,4 @@
-# H-AI : PPG Arrhythmia Detection
+# PPG Arrhythmia Detection
 
 A deep learning system for arrhythmia detection from PPG (Photoplethysmography) signals, combining a hybrid ResNet1D + U-Net architecture with CLIP-based contrastive pre-training and a Gemini LLM-powered clinical report generator.
 
@@ -57,23 +57,6 @@ ppg_arrhythmia_detection/
 └── LICENSE
 ```
 
-### File Responsibilities
-
-| File | Role |
-|------|------|
-| `model_architecture.py` | Defines `UNet1D_ResNet_Combined`, `ResNet1D_Backbone`, HRV feature extraction, inference preprocessing. Shared by both training and inference. |
-| `contrastive_learning.py` | CLIP-style contrastive pre-training: aligns ResNet1D wave embeddings with BioBERT text embeddings via masked InfoNCE loss. Builds the RAG knowledge base. |
-| `train.py` | Full training loop: data loading, CLIP weight injection, focal + dice loss, cosine LR warmup, early stopping, evaluation metrics. |
-| `app.py` | Streamlit UI: patient login/register (SQLite), PPG file upload, model inference, LLM report generation. |
-| `llm_utils.py` | CLIP-compatible clinical encoders for RAG retrieval, Gemini model setup, ESC/ACC/AHA guideline text. |
-
-> **Note**: Two versions of `UNet1D_ResNet_Combined` exist intentionally.
-> - `model_architecture.py`: inference-only (no `load_clip_weights`)
-> - `train.py`: training version (adds `load_clip_weights` method)
->
-> Their `state_dict` keys are identical, so checkpoints are cross-compatible.
-
----
 
 ## Installation
 
@@ -138,16 +121,6 @@ streamlit run app.py
 4. The app scans the signal in sliding windows, classifies each segment, and generates an LLM clinical report.
 
 Place trained model weights (`*.pth`) in the project root and update `MODEL_PATH` in `app.py` if needed.
-
----
-
-## Loss Functions
-
-| Loss | Usage |
-|------|-------|
-| `FocalLoss` (γ=2.0) | 4-class classification |
-| `BCEDiceLoss` | Binary segmentation mask |
-| Combined | `L = L_cls + β · L_seg` |
 
 ---
 
