@@ -1,7 +1,12 @@
+import os
 import torch.nn as nn
-import torch 
+import torch
 import torch.nn.functional as F
 import google.generativeai as genai
+from model_architecture import INV_CLASS_MAP
+
+
+LABEL_DISPLAY_MAP = {'normal': 'Normal', 'af': 'AF', 'b': 'B', 't': 'T'}
 
 
 # --- Encoder classes for RAG retrieval ---
@@ -75,7 +80,7 @@ MEDICAL_GUIDELINES = {
     """,
     
     "Normal": """
-    
+
     [Reference: General Health Checkup Guidelines]
 
     - **Normal Findings**: Regular sinus rhythm, heart rate 60–100 bpm.
@@ -83,3 +88,97 @@ MEDICAL_GUIDELINES = {
     - **Recommendations**: No specific findings. Maintain regular health monitoring.
     """
 }
+
+
+# --- RAG component loading ---
+
+def load_rag_components(device):
+    """Load knowledge base and RAG clinical encoders from disk.
+
+    Returns:
+        (knowledge_base, rag_clin_enc, rag_proj_c)
+        knowledge_base is None if the file does not exist.
+    """
+    kb_path = "knowledge_base.pt"
+    clip_ckpt_path = "clip_biobert_hyh_xai.pth"
+
+    knowledge_base = None
+    if os.path.exists(kb_path):
+        knowledge_base = torch.load(kb_path, weights_only=False)
+        knowledge_base["clinical_vectors"] = knowledge_base["clinical_vectors"].to(device)
+
+    rag_clin_enc = ClinicalMLP(in_dim=17).to(device)
+    rag_proj_c = Projection(in_dim=128).to(device)
+
+    if os.path.exists(clip_ckpt_path):
+        ckpt = torch.load(clip_ckpt_path, map_location=device, weights_only=False)
+        rag_clin_enc.load_state_dict(ckpt['clin_enc'])
+        rag_proj_c.load_state_dict(ckpt['proj_c'])
+        rag_clin_enc.eval()
+        rag_proj_c.eval()
+
+    return knowledge_base, rag_clin_enc, rag_proj_c
+
+
+# --- RAG retrieval functions ---
+
+def get_kb_patient_stats(knowledge_base, target_caseid):
+    """Return label distribution stats for a given caseid in the knowledge base."""
+    if knowledge_base is None:
+        return None
+    kb_ids = knowledge_base["caseids"]
+    if isinstance(kb_ids, torch.Tensor):
+        kb_ids = kb_ids.tolist()
+
+    indices = [i for i, x in enumerate(kb_ids) if x == target_caseid]
+    if not indices:
+        return None
+
+    counts = {"Normal": 0, "AF": 0, "B": 0, "T": 0}
+    kb_labels = knowledge_base["labels"]
+
+    for idx in indices:
+        lbl = kb_labels[idx]
+        if isinstance(lbl, int):
+            lbl = INV_CLASS_MAP[lbl]
+        display_lbl = LABEL_DISPLAY_MAP.get(lbl, lbl)
+        counts[display_lbl] = counts.get(display_lbl, 0) + 1
+
+    total = len(indices)
+    ratios = {k: v / total * 100 for k, v in counts.items()}
+
+    arrs = {k: v for k, v in counts.items() if k != "Normal"}
+    dom = max(arrs, key=arrs.get) if sum(arrs.values()) > 0 else "Normal"
+    return {"counts": counts, "ratios": ratios, "dominant": dom, "total": total}
+
+
+def find_similar_patients_with_stats(query_vec, knowledge_base, rag_clin_enc, rag_proj_c, device, k=3):
+    """Retrieve the k most similar patients from the knowledge base by clinical embedding."""
+    if knowledge_base is None:
+        return []
+    with torch.no_grad():
+        q_17 = transform_13_to_17(query_vec.to(device))
+        q_emb = rag_proj_c(rag_clin_enc(q_17))
+        db_embs = knowledge_base["clinical_vectors"]
+        sim = torch.mm(
+            F.normalize(q_emb, p=2, dim=1),
+            F.normalize(db_embs, p=2, dim=1).T
+        ).squeeze(0)
+        top_vals, top_idxs = torch.topk(sim, k=k * 10)
+
+    results = []
+    seen = set()
+    for i, idx in enumerate(top_idxs):
+        idx = idx.item()
+        caseid = knowledge_base["caseids"][idx]
+        if isinstance(caseid, torch.Tensor):
+            caseid = caseid.item()
+        if caseid in seen:
+            continue
+        seen.add(caseid)
+        patient_stats = get_kb_patient_stats(knowledge_base, caseid)
+        if patient_stats:
+            results.append({"caseid": caseid, "similarity": top_vals[i].item(), "stats": patient_stats})
+        if len(results) >= k:
+            break
+    return results

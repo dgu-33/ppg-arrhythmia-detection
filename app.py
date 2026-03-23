@@ -26,9 +26,6 @@ try:
 except Exception as e:
     print(f"Gemini API error: {e}")
 
-LABEL_DISPLAY_MAP = {
-    'normal': 'Normal', 'af': 'AF', 'b': 'B', 't': 'T'
-}
 
 
 def create_full_clinical_info_text(patient_data):
@@ -76,7 +73,9 @@ except Exception as e:
 # --- Import llm_utils ---
 try:
     from llm_utils import (
-        ClinicalMLP, Projection, transform_13_to_17, llm_model, MEDICAL_GUIDELINES 
+        ClinicalMLP, Projection, transform_13_to_17, llm_model, MEDICAL_GUIDELINES,
+        LABEL_DISPLAY_MAP, load_rag_components, get_kb_patient_stats,
+        find_similar_patients_with_stats,
     )
 except ImportError:
     st.error("Error: 'llm_utils.py' nonfound.")
@@ -86,79 +85,8 @@ except Exception as e:
     st.stop()
 
 
-# --- Load knowledge base ---
-KB_PATH = "knowledge_base.pt"
-knowledge_base = None
-if os.path.exists(KB_PATH):
-    knowledge_base = torch.load(KB_PATH)
-    knowledge_base["clinical_vectors"] = knowledge_base["clinical_vectors"].to(device)
-
-# --- Load RAG model weights ---
-rag_clin_enc = ClinicalMLP(in_dim=17).to(device)
-rag_proj_c = Projection(in_dim=128).to(device)
-
-
-CLIP_CKPT_PATH = "clip_biobert_hyh_xai.pth"
-if os.path.exists(CLIP_CKPT_PATH):
-    ckpt = torch.load(CLIP_CKPT_PATH, map_location=device, weights_only=False)
-    rag_clin_enc.load_state_dict(ckpt['clin_enc'])
-    rag_proj_c.load_state_dict(ckpt['proj_c'])
-    rag_clin_enc.eval(); rag_proj_c.eval()
-
-
-# --- Knowledge base patient stats lookup ---
-def get_kb_patient_stats(target_caseid):
-    if knowledge_base is None: return None
-    kb_ids = knowledge_base["caseids"]
-    if isinstance(kb_ids, torch.Tensor): kb_ids = kb_ids.tolist()
-
-    indices = [i for i, x in enumerate(kb_ids) if x == target_caseid]
-    if not indices: return None
-
-    counts = {"Normal": 0, "AF": 0, "B": 0, "T": 0}
-    kb_labels = knowledge_base["labels"]
-
-    for idx in indices:
-        lbl = kb_labels[idx]
-        if isinstance(lbl, int): lbl = INV_CLASS_MAP[lbl]  # convert integer label to string
-        display_lbl = LABEL_DISPLAY_MAP.get(lbl, lbl)       # map lowercase to display label
-        counts[display_lbl] = counts.get(display_lbl, 0) + 1
-
-    total = len(indices)
-    ratios = {k: v/total*100 for k, v in counts.items()}
-
-    # Find dominant arrhythmia class (excluding Normal)
-    arrs = {k: v for k, v in counts.items() if k != "Normal"}
-    if sum(arrs.values()) > 0:
-        dom = max(arrs, key=arrs.get)
-    else:
-        dom = "Normal"
-    return {"counts": counts, "ratios": ratios, "dominant": dom, "total": total}
-
-# --- Similar patient retrieval ---
-def find_similar_patients_with_stats(query_vec_13, k=3):
-    if knowledge_base is None: return []
-    with torch.no_grad():
-        q_17 = transform_13_to_17(query_vec_13.to(device))
-        q_emb = rag_proj_c(rag_clin_enc(q_17))
-        db_embs = knowledge_base["clinical_vectors"]
-        sim = torch.mm(F.normalize(q_emb, p=2, dim=1), F.normalize(db_embs, p=2, dim=1).T).squeeze(0)
-        top_vals, top_idxs = torch.topk(sim, k=k*10)
-
-    results = []
-    seen = set()
-    for i, idx in enumerate(top_idxs):
-        idx = idx.item()
-        caseid = knowledge_base["caseids"][idx]
-        if isinstance(caseid, torch.Tensor): caseid = caseid.item()
-        if caseid in seen: continue
-        seen.add(caseid)
-
-        stats = get_kb_patient_stats(caseid)
-        if stats:
-            results.append({"caseid": caseid, "similarity": top_vals[i].item(), "stats": stats})
-        if len(results) >= k: break
-    return results
+# --- Load RAG components (knowledge base + clinical encoders) ---
+knowledge_base, rag_clin_enc, rag_proj_c = load_rag_components(device)
 
 
 def create_pure_waveform_plot_to_image(signal_resampled, patient_id, window_id):
@@ -925,7 +853,10 @@ def show_main_app(db_conn, unet_model):
                     }
                 
                     try:
-                        sims = find_similar_patients_with_stats(current_cache['clin_vec'].unsqueeze(0), k=3)
+                        sims = find_similar_patients_with_stats(
+                            current_cache['clin_vec'].unsqueeze(0),
+                            knowledge_base, rag_clin_enc, rag_proj_c, device, k=3
+                        )
                         evidence = ""
                         if sims:
                             for i, s in enumerate(sims):

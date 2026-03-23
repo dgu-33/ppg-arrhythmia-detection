@@ -19,6 +19,7 @@ scikit-learn
 
 # Visualization
 matplotlib
+seaborn
 Pillow
 
 # Utilities

@@ -96,13 +96,21 @@ python train.py \
 
 ```
 PPG_AD_Dataset/
-├── Normal/          # .npy files — raw PPG signal arrays
-├── AF/              # .npz files — keys: signal, mask, class
-├── B/               # .npz files
-└── T/               # .npz files
+├── train/                    # .npy / .npz PPG windows
+├── train_normal/             # (optional) extra normal PPG windows
+├── valid/                    # .npy / .npz PPG windows
+├── val_normal/               # (optional) extra normal PPG windows
+├── test/                     # .npy / .npz PPG windows
+├── checkpoints/
+│   └── clip_biobert_hyh_xai.pth   # CLIP pre-trained weights
+├── train.csv                 # clinical features (training split)
+├── train_normal.csv          # (optional) extra normal samples
+├── valid.csv                 # clinical features (validation split)
+├── valid_normal.csv          # (optional)
+└── test.csv                  # clinical features (test split)
 ```
 
-Training expects a merged CSV (`*_combined.csv`) containing clinical features per sample. Pre-computed normalisation statistics are saved to `data_stats.json` and `clinical_stats.json`.
+Each `.npz` file must contain keys: `signal` (1-D float array), `mask` (binary array), `class` (integer code: 0/1 = Normal, 2 = AF, 3 = B, 4 = T). Plain `.npy` files (signal only) are treated as Normal. Each CSV must have a `caseid` column matching the numeric prefix of the corresponding waveform filenames.
 
 ---
 
@@ -120,7 +128,13 @@ streamlit run app.py
 3. Upload a `.npy` or `.npz` PPG file.
 4. The app scans the signal in sliding windows, classifies each segment, and generates an LLM clinical report.
 
-Place trained model weights (`*.pth`) in the project root and update `MODEL_PATH` in `app.py` if needed.
+Place the following files in the project root before running the app:
+
+| File | Description |
+|------|-------------|
+| `best_combined_model.pth` | Trained UNet model weights (output of `train.py`) |
+| `clip_biobert_hyh_xai.pth` | CLIP checkpoint for RAG clinical encoders |
+| `knowledge_base.pt` | Pre-built RAG knowledge base (output of `contrastive_learning.py`) |
 
 ---
 
