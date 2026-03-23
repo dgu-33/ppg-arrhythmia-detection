@@ -1,0 +1,26 @@
+# Deep learning
+torch
+torchvision
+
+# Web app
+streamlit
+
+# LLM
+google-generativeai
+
+# CLIP pre-training (contrastive_learning.py)
+transformers
+
+# Data
+numpy
+pandas
+scipy
+scikit-learn
+
+# Visualization
+matplotlib
+Pillow
+
+# Utilities
+tqdm
+python-dotenv

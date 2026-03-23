@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Model checkpoints & weights
+*.pth
+*.pt
+*.ckpt
+
+# Generated data files (computed from training data, not committed)
+data_stats.json
+clinical_stats.json
+
+# Database
+*.db
+
+# Training outputs
+training_history.png
+confusion_matrix.png
+*_combined.csv
+
+# Dataset (too large for GitHub)
+PPG_AD_Dataset/
+
+# LLM working directory
+llm_input_data/
+
+# Environment
+.env
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
