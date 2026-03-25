@@ -21,6 +21,8 @@ The system also produces a **binary anomaly segmentation mask** over the wavefor
 
 ## Architecture
 
+![overview of the multimodal PPG-based arrhythmia detection framework](images/Overview.png)
+
 ### 1. CLIP Pre-training
 The ResNet1D encoder is pre-trained with contrastive learning (CLIP-style) to align PPG signal representations with 13-dimensional clinical tabular features (age, BMI, lab values, comorbidities, etc.).
 
@@ -52,6 +54,8 @@ ppg_arrhythmia_detection/
 ├── train.py                   # Training pipeline with argparse CLI
 ├── app.py                     # Streamlit web application
 ├── llm_utils.py               # Gemini LLM setup, RAG encoders, medical guidelines
+├── images/                    # README assets
+│   └── Overview.png
 ├── requirements.txt
 ├── .gitignore
 └── LICENSE
