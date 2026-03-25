@@ -92,7 +92,7 @@ python train.py \
 | `--enc_lr_ratio` | 0.1 | Encoder LR multiplier (fine-tuning) |
 | `--unfreeze_epoch` | 50 | Epoch at which encoder is unfrozen |
 | `--patience` | 50 | Early stopping patience |
-| `--alpha` | 2.0 | Focal loss gamma |
+| `--alpha` | 2.0 | Classification loss weight |
 | `--beta` | 0.8 | BCE/Dice loss blend weight |
 | `--seed` | 42 | Random seed |
 
