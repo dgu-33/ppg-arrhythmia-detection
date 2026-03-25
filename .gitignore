@@ -19,7 +19,7 @@ training_history.png
 confusion_matrix.png
 *_combined.csv
 
-# Dataset (too large for GitHub)
+# Dataset 
 PPG_AD_Dataset/
 
 # LLM working directory
