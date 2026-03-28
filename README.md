@@ -1,6 +1,6 @@
 # PPG Arrhythmia Detection
 
-PPG(광혈류측정) 신호에서 부정맥을 탐지하는 딥러닝 시스템으로, 하이브리드 ResNet1D + U-Net 아키텍처와 CLIP 기반 대조 사전학습, Gemini LLM 기반 임상 보고서 생성기를 결합합니다.
+PPG(광혈류측정) 신호에서 부정맥을 탐지하는 딥러닝 시스템으로, 하이브리드 ResNet1D + U-Net 아키텍처와 CLIP 기반 대조 학습, Gemini LLM 기반 임상 보고서 생성기를 결합합니다.
 
 ---
 
@@ -96,26 +96,6 @@ python train.py \
 | `--beta` | 0.8 | 세그멘테이션 손실 가중치 |
 | `--seed` | 42 | 랜덤 시드 |
 
-### 데이터셋 형식
-
-```
-PPG_AD_Dataset/
-├── train/                    # .npy / .npz PPG 윈도우
-├── train_normal/             # (선택) 추가 정상 PPG 윈도우
-├── valid/                    # .npy / .npz PPG 윈도우
-├── val_normal/               # (선택) 추가 정상 PPG 윈도우
-├── test/                     # .npy / .npz PPG 윈도우
-├── checkpoints/
-│   └── clip_biobert_hyh_xai.pth   # CLIP 사전학습 가중치
-├── train.csv                 # 임상 특징 (학습 분할)
-├── train_normal.csv          # (선택) 추가 정상 샘플
-├── valid.csv                 # 임상 특징 (검증 분할)
-├── valid_normal.csv          # (선택)
-└── test.csv                  # 임상 특징 (테스트 분할)
-```
-
-각 `.npz` 파일은 `signal` (1차원 float 배열), `mask` (이진 배열), `class` (정수 코드: 0/1 = Normal, 2 = AF, 3 = B, 4 = T) 키를 포함해야 합니다. 일반 `.npy` 파일(신호만 포함)은 Normal로 처리됩니다. 각 CSV는 해당 파형 파일명의 숫자 접두사와 일치하는 `caseid` 컬럼을 가져야 합니다.
-
 ---
 
 ## 웹 애플리케이션
@@ -141,9 +121,3 @@ streamlit run app.py
 | `knowledge_base.pt` | 사전 구축된 RAG 지식 베이스 (`contrastive_learning.py` 출력) |
 
 ---
-
-## 참고문헌
-
-- **2020 ESC 가이드라인** — 심방세동 진단 및 관리
-- **ACC/AHA 가이드라인** — 서맥 및 빈맥 관리
-- **CLIP**: Radford et al., "Learning Transferable Visual Models From Natural Language Supervision", 2021
