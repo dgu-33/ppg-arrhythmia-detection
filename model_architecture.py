@@ -147,11 +147,10 @@ def get_clinical_feature_vector(patient_data: dict, fill_value: float = 0.0) -> 
         Stage 1: StandardScaler (Z-score)
         Stage 2: Min-Max normalisation
     """
-    # Build a single-row DataFrame and apply drop_first=True OHE
-    # to match the feature order expected by the model
+    
     df_raw = pd.DataFrame([patient_data])
 
-    # Fill missing categorical columns with the first category as default
+    
     for col_raw in list(BINARY_STR_COLS.keys()):
         if col_raw not in df_raw.columns:
             df_raw[col_raw] = BINARY_STR_COLS[col_raw][0]
@@ -176,8 +175,7 @@ def get_clinical_feature_vector(patient_data: dict, fill_value: float = 0.0) -> 
 
     feature_vector = np.array(raw_features_list, dtype=np.float32)
 
-    # Stage 1: StandardScaler Z-score
-    # Division-by-zero guard was already applied when STD_SCALER_STD was loaded
+
     scaled_features = (feature_vector - STD_SCALER_MEAN) / STD_SCALER_STD
 
     # Stage 2: Min-Max normalisation using training distribution bounds
@@ -215,17 +213,16 @@ def preprocess_for_inference(signal_raw, patient_clinical_data: dict):
     sig_resampled = F.interpolate(sig_tensor, size=TARGET_LENGTH, mode='linear', align_corners=False)
 
     # 4. Sample-wise Z-score normalisation
-    x = sig_resampled.squeeze(0).float()  # (1, L_target)
+    x = sig_resampled.squeeze(0).float() 
     current_mean = x.mean()
     current_std  = x.std()
     if current_std > 1e-8:
         x = (x - current_mean) / current_std
     else:
-        x = x - current_mean  # flat signal: centre at zero
+        x = x - current_mean  
 
-    model_input = x.unsqueeze(0)  # restore to (1, 1, L_target)
+    model_input = x.unsqueeze(0)  
 
-    # plot_signal retains the original amplitude scale for visualisation
     return model_input, hrv_tensor, clinical_vector_tensor, sig_resampled.squeeze().cpu().numpy()
 
 
@@ -290,16 +287,16 @@ class ResNet1D_Backbone(nn.Module):
         features = []
 
         x = self.initial(x)
-        features.append(x)  # [0]: (B, 32,  L/4)  — stem
+        features.append(x)  
 
         x = self.layer1(x)
-        features.append(x)  # [1]: (B, 64,  L/8)
+        features.append(x) 
 
         x = self.layer2(x)
-        features.append(x)  # [2]: (B, 128, L/16)
+        features.append(x)
 
         x = self.layer3(x)
-        features.append(x)  # [3]: (B, 256, L/32) — bottleneck
+        features.append(x) 
 
         return features
 
@@ -330,8 +327,6 @@ class Up(nn.Module):
         self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2):
-        # x1: upsampled decoder feature
-        # x2: skip connection from the encoder
         x1 = self.up(x1)
 
         # Pad x1 if its length does not exactly match x2
@@ -371,8 +366,6 @@ class UNet1D_ResNet_Combined(nn.Module):
         clf_logits : (B, n_classes)  — raw classification logits
         y_seg      : (B, L)          — raw segmentation logits (pre-sigmoid)
 
-    Note: train.py defines a training-specific subclass that adds load_clip_weights().
-    Layer names and state_dict keys are identical so checkpoints transfer seamlessly.
     """
     def __init__(self, n_channels, n_classes, n_clinical_features=N_CLINICAL_FEATURES, n_hrv_features=N_HRV_FEATURES):
         super().__init__()
@@ -380,8 +373,8 @@ class UNet1D_ResNet_Combined(nn.Module):
         self.n_clinical_features = n_clinical_features
         self.n_hrv_features = n_hrv_features
 
-        self.encoder_feature_dim = 256  # final output channels of ResNet backbone
-        self.clip_feature_dim    = 128  # CLIP embedding dimension
+        self.encoder_feature_dim = 256
+        self.clip_feature_dim    = 128  
 
         # Encoder
         self.encoder = ResNet1D_Backbone(in_channels=n_channels, base_filters=32)
@@ -404,7 +397,7 @@ class UNet1D_ResNet_Combined(nn.Module):
         # Segmentation head
         self.seg_head = nn.Conv1d(16, 1, kernel_size=1)
 
-        # Classification head input: 128 (CLIP) + 13 (clinical) + 4 (HRV) = 145
+        # Classification head 
         clf_in_dim = self.clip_feature_dim + self.n_clinical_features + self.n_hrv_features
 
         self.clf_head = nn.Sequential(
@@ -424,12 +417,12 @@ class UNet1D_ResNet_Combined(nn.Module):
         x_stem = features[0]
         x1     = features[1]
         x2     = features[2]
-        x3     = features[3]  # bottleneck: (B, 256, L/32)
+        x3     = features[3] 
 
         # Classification path
-        gap          = F.adaptive_avg_pool1d(x3, 1).squeeze(-1)  # (B, 256)
-        clip_feature = self.clip_projection(gap)                   # (B, 128)
-        combined     = torch.cat([clip_feature, clinical_features, hrv_features], dim=1)  # (B, 145)
+        gap          = F.adaptive_avg_pool1d(x3, 1).squeeze(-1)  
+        clip_feature = self.clip_projection(gap)                  
+        combined     = torch.cat([clip_feature, clinical_features, hrv_features], dim=1) 
         clf_logits   = self.clf_head(combined)
 
         # Segmentation path (U-Net decoder)
@@ -478,10 +471,10 @@ def find_mask_indices(mask_array, offset=0, threshold=0.5):
     segments = []
     start_index = indices[0]
     for i in range(1, len(indices)):
-        if indices[i] != indices[i - 1] + 1:  # gap found: close current segment
+        if indices[i] != indices[i - 1] + 1:  
             segments.append((start_index, indices[i - 1]))
             start_index = indices[i]
-    segments.append((start_index, indices[-1]))  # close final segment
+    segments.append((start_index, indices[-1])) 
 
     segment_texts = [f"index {s + offset} to {e + offset}" for s, e in segments]
 

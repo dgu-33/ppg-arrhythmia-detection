@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-train.py — PPG Arrhythmia Detection Training Script
-
-Trains UNet1D_ResNet_Combined (hybrid ResNet encoder + U-Net decoder) on
-windowed PPG recordings with clinical tabular features and HRV features.
-
-Usage:
-    python train.py [--base_path /path/to/dataset] [--epochs 200] ...
-
-All shared model components and inference utilities live in model_architecture.py;
-this script imports from there and defines only training-specific code.
-"""
-
 import os
 import json
 import math

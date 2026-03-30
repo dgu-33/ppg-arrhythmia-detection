@@ -23,7 +23,7 @@ class Projection(nn.Module):
         self.fc = nn.Linear(in_dim, proj_dim)
     def forward(self, x): return F.normalize(self.fc(x), dim=-1)
 
-def transform_13_to_17(vec_13):  # expand drop_first OHE (13-dim) to full OHE (17-dim)
+def transform_13_to_17(vec_13):  
     if vec_13.dim() == 1: vec_13 = vec_13.unsqueeze(0)
     cont = vec_13[:, :9]
     sex_m = vec_13[:, 9:10]; sex_f = 1.0 - sex_m

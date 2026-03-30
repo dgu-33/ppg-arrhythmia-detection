@@ -1,21 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-contrastive_learning.py — CLIP-style Contrastive Pre-training
-
-Trains a ResNet1DEncoder (PPG) + ClinicalMLP + BioBERT text encoder via
-masked InfoNCE loss. Produces a checkpoint compatible with train.py's
-load_clip_weights() and app.py's RAG retrieval.
-
-Usage:
-    python contrastive_learning.py [--dataset_path /path/to/PPG_AD_Dataset] [--epochs 100] ...
-
-Output (saved to --save_dir):
-    clip_biobert_hyh_xai.pth  — best model checkpoint
-    knowledge_base.pt          — RAG knowledge base built from training data
-    clip_loss_curve.png        — train / val loss curves
-    clip_tsne.png              — t-SNE alignment visualisation
-"""
-
 import os
 import random
 import argparse
@@ -233,7 +215,7 @@ class WaveClinTextDataset(Dataset):
             return self.__getitem__((idx + 1) % len(self))
 
         # Resample to target length
-        wave_t = torch.from_numpy(wave).unsqueeze(0).unsqueeze(0)  # (1,1,L)
+        wave_t = torch.from_numpy(wave).unsqueeze(0).unsqueeze(0) 
         if wave.shape[-1] > self.target_len:
             seg = F.interpolate(
                 wave_t, size=self.target_len, mode="linear", align_corners=True
